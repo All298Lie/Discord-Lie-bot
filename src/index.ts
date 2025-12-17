@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { initDatabase } from './database.js';
 
 // 환경 변수 로드
 dotenv.config();
@@ -19,6 +20,11 @@ const client = new Client({
         GatewayIntentBits.GuildVoiceStates
     ]
 });
+
+// DB 테이블 생성
+(async () => {
+    await initDatabase();
+})();
 
 // command 목록 가져오기
 const __filename = fileURLToPath(import.meta.url);
