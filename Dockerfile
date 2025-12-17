@@ -13,5 +13,8 @@ RUN ["npm", "install"]
 # 소스코드 복사
 COPY . .
 
+# 스크립트 실행 권한 부여
+RUN chmod +x ./docker-entrypoint.sh
+
 # 봇 실행
-CMD ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

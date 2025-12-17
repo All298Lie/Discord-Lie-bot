@@ -8,12 +8,12 @@ export default {
         .setDescription('포인트를 사용하여 대박을 노려보세요!')
         .addIntegerOption(option => 
             option.setName('단계')
-                .setDescription('구매할 박스 단계 (1, 2, 3)')
+                .setDescription('구매할 박스 단계 (1단계 [500P], 2단계 [5,000P], 3단계 [50,000P])')
                 .setRequired(true)
                 .addChoices(
-                    { name: '1단계 (500 P)', value: 1 },
-                    { name: '2단계 (5,000 P)', value: 2 },
-                    { name: '3단계 (50,000 P)', value: 3 },
+                    { name: '1', value: 1 },
+                    { name: '2', value: 2 },
+                    { name: '3', value: 3 },
                 )
         ),
 
@@ -39,8 +39,9 @@ export default {
         const rand = Math.random() * 100; // 0.0 ~ 100.0
         let multiplier = 0;
 
-        if (rand < 70) multiplier = 0.5; // 70% (0~70) : x0.5
-        else if (rand < 85) multiplier = 0.8; // 15% (70~85) : x0.8
+        if (rand < 45) multiplier = 0.5; // 45% (0~45) : x0.5
+        else if (rand < 70) multiplier = 0.8; // 25% (45~70) : x0.8
+        else if (rand < 85) multiplier = 1.0; // 15% (70~85) : x1.0
         else if (rand < 95) multiplier = 1.2; // 10% (85~95) : x1.2
         else if (rand < 98) multiplier = 2.0; // 3% (95~98) : x2.0
         else if (rand < 99.5) multiplier = 5.0; // 1.5% (98~99.5) : x5.0
