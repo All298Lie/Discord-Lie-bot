@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { initDatabase } from './database.js';
+import { startVoiceRewardLoop, handleVoiceStateUpdate } from './voiceManager.js';
 
 // 환경 변수 로드
 dotenv.config();
@@ -19,6 +21,11 @@ const client = new Client({
         GatewayIntentBits.GuildVoiceStates
     ]
 });
+
+// DB 테이블 생성
+(async () => {
+    await initDatabase();
+})();
 
 // command 목록 가져오기
 const __filename = fileURLToPath(import.meta.url);
@@ -40,12 +47,14 @@ for (const file of commandFiles) {
     }
 }
 
-// 봇이 켜졌을 때 실행
+// A. 봇 로그인 감지 이벤트
 client.once(Events.ClientReady, () => {
     console.log(`로그인 성공! ${client.user?.tag}`);
+
+    startVoiceRewardLoop();
 });
 
-// 상호작용 이벤트 처리
+// B. 명령어 입력 감지 이벤트
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -68,12 +77,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 });
 
-// 메시지를 받았을 때 실행
+// C. 채팅 채널 채팅 감지 이벤트
 client.on(Events.MessageCreate, (message) => {
     if (message.content === '!핑') {
         message.reply('퐁!');
     }
 });
 
+// D. 음성 채널 접속 감지 이벤트
+client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    handleVoiceStateUpdate(oldState, newState);
+});
+
 // 봇 로그인 (환경변수에서 토큰 가져옴)
 client.login(process.env.DISCORD_TOKEN);
+
+// 도커가 컨테이너에게 종료 신호를 보낸 경우
+process.on('SIGTERM', () => {
+    // 
+});
+
+// 터미널을 통해 종료 신호를 받은 경우
+process.on('SIGINT', () => {
+    // 
+});
