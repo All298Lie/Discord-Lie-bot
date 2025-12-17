@@ -22,9 +22,7 @@ services:
       MARIADB_USER: bot_user
       MARIADB_PASSWORD: ${DB_USER_PASSWORD}
       TZ: Asia/Seoul
-
-volumes:
-  - ./db_data:/var/lib/mysql
-
-ports:
-  - "3306:3306"
+    volumes:
+      - ./db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
