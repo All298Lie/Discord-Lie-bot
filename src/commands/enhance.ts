@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 // 로그 함수 기반 강화 확률 계산 함수
 function calculateChance(level: number): number {
@@ -29,6 +29,25 @@ export default {
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
 
+        const currentChannelId = interaction.channelId;
+        const dedicatedChannelId = await getDedicatedChannel(guildId);
+
+        // A. 전용 채널이 설정되지 않은 경우
+        if (!dedicatedChannelId) {
+             return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        // B. 전용 채널에 입력하지 않은 경우
+        if (dedicatedChannelId !== currentChannelId) {
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
         const user = await getUser(guildId, userId);
         const MAX_LEVEL = 500;
 
@@ -43,7 +62,7 @@ export default {
         // 강화 비용
         const cost = 1000;
         
-        // A. 강화에 필요한 비용이 모자를 경우
+        // C. 강화에 필요한 비용이 모자를 경우
         if (BigInt(user.point) < BigInt(cost)) {
             return interaction.reply({ 
                 content: '포인트가 부족합니다!',
@@ -93,14 +112,14 @@ export default {
         );
 
         if (isSuccess) {
-            if (newLevel >= MAX_LEVEL) { // B. 최대 레벨에 달성한 경우
+            if (newLevel >= MAX_LEVEL) { // D. 최대 레벨에 달성한 경우
                  return interaction.reply(
                     `🎆 **전설의 탄생!** 강화 대성공!\n` +
                     `최고 레벨 **Lv.${MAX_LEVEL}**을 달성하셨습니다! 🏆`
                 );
             }
 
-            // C. 강화에 성공한 경우
+            // E. 강화에 성공한 경우
             return interaction.reply(
                 `✨ **강화 성공!** ${isPity ? '(천장 발동🔥)' : ''}\n` +
                 `📊 확률: **${successChance}%**\n` +
@@ -108,7 +127,7 @@ export default {
             );
 
         } else {
-            // D. 강화에 실패한 경우
+            // F. 강화에 실패한 경우
             return interaction.reply(
                 `💥 **강화 실패...**\n` +
                 `📊 확률: **${successChance}%**\n` +

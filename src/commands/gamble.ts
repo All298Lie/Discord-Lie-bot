@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 export default {
     // 명령어 속성
@@ -26,8 +26,27 @@ export default {
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
         const user = await getUser(guildId, userId);
+        
+        const currentChannelId = interaction.channelId;
+        const dedicatedChannelId = await getDedicatedChannel(guildId);
+        
+        // A. 전용 채널이 설정되지 않은 경우
+        if (!dedicatedChannelId) {
+            return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+        
+        // B. 전용 채널에 입력하지 않은 경우
+        if (dedicatedChannelId !== currentChannelId) {
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
 
-        // A. 랜덤박스를 구매하는데 필요한 비용이 모자른 경우
+        // C. 랜덤박스를 구매하는데 필요한 비용이 모자른 경우
         if (BigInt(user.point) < BigInt(cost)) {
             return interaction.reply({
                 content: '포인트가 부족합니다!',
@@ -65,7 +84,7 @@ export default {
         if (multiplier >= 2) emoji = '🎉';
         if (multiplier >= 10) emoji = '💎';
 
-        // B. 랜덤박스 결과 출력
+        // D. 랜덤박스 결과 출력
         return interaction.reply(
             `🎁 **랜덤박스 결과** (${multiplier}배)\n` +
             `${emoji} ${reward.toLocaleString()} P를 획득했습니다!`

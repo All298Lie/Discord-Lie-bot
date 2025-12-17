@@ -1,0 +1,1 @@
+export const voiceSessions = new Map<string, { isAdmin: boolean }>();

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 export default {
     // 명령어 속성
@@ -11,6 +11,25 @@ export default {
     async execute(interaction: ChatInputCommandInteraction) {
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
+
+        const currentChannelId = interaction.channelId;
+        const dedicatedChannelId = await getDedicatedChannel(guildId);
+
+        // A. 전용 채널이 설정되지 않은 경우
+        if (!dedicatedChannelId) {
+             return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        // B. 전용 채널에 입력하지 않은 경우
+        if (dedicatedChannelId !== currentChannelId) {
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
 
         // 유저 정보를 DB에서 가져오기
         const user = await getUser(guildId, userId);
@@ -31,7 +50,7 @@ export default {
             lastDateStr = kstLastDate.toISOString().split('T')[0]!;
         }
 
-        // A. 오늘 출석을 이미 한 경우
+        // C. 오늘 출석을 이미 한 경우
         if (todayStr === lastDateStr) {
             return interaction.reply({
                 content: '이미 오늘은 출석하였습니다.',
@@ -76,7 +95,7 @@ export default {
             [totalPoint, newStreak, todayStr, guildId, userId]
         );
 
-        // B. 출석을 한 경우
+        // D. 출석을 한 경우
         return interaction.reply(
             `📅**출석 체크 완료**\n` +
             `- 출석 보상 : ${reward.toLocaleString()} P (${isWeekend ? '주말' : '평일'})\n` +

@@ -23,8 +23,7 @@ const pool = mysql.createPool({
 
 // 테이블이 없을 경우 테이블 생성하는 함수
 export async function initDatabase() {
-    let connected = false;
-    const sql = `
+    const users = `
         CREATE TABLE IF NOT EXISTS users (
             guild_id VARCHAR(20) NOT NULL,
             user_id VARCHAR(20) NOT NULL,
@@ -36,12 +35,21 @@ export async function initDatabase() {
             PRIMARY KEY (guild_id, user_id)
         );
     `;
+    const guildSettings = `
+        CREATE TABLE IF NOT EXISTS guild_settings (
+            guild_id VARCHAR(20) PRIMARY KEY,
+            dedicated_channel_id VARCHAR(20)
+        );
+    `;
 
+    // 데이터베이스 접속 시도
+    let connected = false;
     while (!connected) {
         try {
             console.log("🔄 데이터베이스 연결 시도 중...");
             await pool.execute('SELECT 1'); // 테스트 쿼리
-            await pool.execute(sql);
+            await pool.execute(users); // users 테이블 생성 쿼리
+            await pool.execute(guildSettings); // guild_settings 테이블 생성 쿼리
 
             console.log("✅ 데이터베이스 연결 및 초기화 성공!");
             connected = true
@@ -54,7 +62,7 @@ export async function initDatabase() {
     }
 }
 
-// 유저 데이터 가져오기 (없을 경우 생성)
+// 유저 데이터 가져오는 함수
 export async function getUser(guildId: string, userId: string) {
     await pool.execute(
         'INSERT IGNORE INTO users (guild_id, user_id) VALUES (?, ?)',
@@ -67,6 +75,27 @@ export async function getUser(guildId: string, userId: string) {
     );
 
     return rows[0];
+}
+
+// 전용 채널 설정 업데이트 함수
+export async function setDedicatedChannel(guildId: string, channelId: string) {
+    await pool.execute(`
+        INSERT INTO guild_settings (guild_id, dedicated_channel_id)
+        VALUES(?, ?)
+        ON DUPLICATE KEY UPDATE dedicated_channel_id = ?
+    `,
+    [guildId, channelId, channelId]
+    );
+}
+
+// 전용 채널 ID 가져오는 함수
+export async function getDedicatedChannel(guildId: string) : Promise<string | null> {
+    const [rows]: any = await pool.execute(
+        'SELECT dedicated_channel_id FROM guild_settings WHERE guild_id = ?',
+        [guildId]
+    );
+
+    return rows.length > 0 ? rows[0].dedicated_channel_id : null;
 }
 
 export default pool;

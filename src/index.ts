@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { initDatabase } from './database.js';
+import pool, { initDatabase } from './database.js';
 import { startVoiceRewardLoop, handleVoiceStateUpdate } from './voiceManager.js';
 
 // 환경 변수 로드
@@ -92,12 +92,40 @@ client.on(Events.VoiceStateUpdate, (oldState, newState) => {
 // 봇 로그인 (환경변수에서 토큰 가져옴)
 client.login(process.env.DISCORD_TOKEN);
 
+// 안전한 종료를 위한 함수
+const handleExit= async (signal: string) => {
+    console.log(`\n⚠️ ${signal} 신호를 받았습니다. 봇을 종료합니다...`);
+
+    // 디스코드 봇 로그아웃
+    try {
+        console.log('🔌 Discord 연결 종료 중...');
+        await client.destroy(); 
+        console.log('✅ Discord 연결 종료 완료');
+
+    } catch (error) {
+        console.error('❌ Discord 연결 종료 실패:', error);
+    }
+
+    // 데이터베이스 연결 종료
+    try {
+        console.log('💾 Database 연결 종료 중...');
+        await pool.end(); 
+        console.log('✅ Database 연결 종료 완료');
+
+    } catch (error) {
+        console.error('❌ Database 연결 종료 실패:', error);
+    }
+
+    console.log('👋 봇이 안전하게 종료되었습니다.');
+    process.exit(0); // 프로그램 정상 종료
+}
+
 // 도커가 컨테이너에게 종료 신호를 보낸 경우
-process.on('SIGTERM', () => {
-    // 
-});
+process.on('SIGTERM', () => 
+    handleExit('SIGTERM')
+);
 
 // 터미널을 통해 종료 신호를 받은 경우
-process.on('SIGINT', () => {
-    // 
-});
+process.on('SIGINT', () =>
+    handleExit('SIGINT')
+);

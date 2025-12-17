@@ -6,12 +6,15 @@ import {
     ButtonStyle,
     ActionRowBuilder,
     ComponentType,
-    MessageFlags
+    MessageFlags,
+    PermissionFlagsBits
  } from 'discord.js';
  import {
     joinVoiceChannel,
     getVoiceConnection
  } from '@discordjs/voice';
+ import { voiceSessions } from '../botState.js';
+ import { getDedicatedChannel } from '../database.js';
 
 export default {
     // 명령어 정보
@@ -21,9 +24,29 @@ export default {
 
     // 명령어 작동 함수
     async execute(interaction: ChatInputCommandInteraction) {
+        const guildId = interaction.guildId!;
         const member = interaction.member as GuildMember;
         const userChannel = member.voice.channel;
         
+        const currentChannelId = interaction.channelId;
+        const dedicatedChannelId = await getDedicatedChannel(guildId);
+                
+        // A. 전용 채널이 설정되지 않은 경우
+        if (!dedicatedChannelId) {
+            return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+                
+        // B. 전용 채널에 입력하지 않은 경우
+        if (dedicatedChannelId !== currentChannelId) {
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
         // 명령어를 친 유저가 음성 채널에 있는지 확인
         if (!userChannel) {
             return interaction.reply({ 
@@ -33,9 +56,10 @@ export default {
         }
 
         // 봇이 이미 음성 채널에 있는지 확인
-        const currentConnection = getVoiceConnection(interaction.guildId!);
+        const currentConnection = getVoiceConnection(guildId);
+        const isAdminUser = member.permissions.has(PermissionFlagsBits.Administrator)
 
-        // A. 봇이 음성 채널에 들어가있지 않을 경우
+        // C. 봇이 음성 채널에 들어가있지 않을 경우
         if (!currentConnection) {
             joinVoiceChannel({
                 channelId: userChannel.id,
@@ -43,10 +67,12 @@ export default {
                 adapterCreator: userChannel.guild.voiceAdapterCreator
             });
 
+            voiceSessions.set(guildId, { isAdmin: isAdminUser });
+
             return interaction.reply(`**${userChannel.name}** 채널에 접속했습니다.`);
         }
 
-        // B. 봇이 유저가 위치한 음성 채널에 있을 경우
+        // D. 봇이 유저가 위치한 음성 채널에 있을 경우
         if (currentConnection.joinConfig.channelId === userChannel.id) {
             return interaction.reply({
                 content: '이미 유저가 위치한 통화방에 접속 중입니다.',
@@ -54,7 +80,16 @@ export default {
             });
         }
 
-        // C. 봇이 다른 음성 채널에 이미 접속해 있는 경우
+        // E. 봇을 이전에 입장시킨 유저는 관리자고, 명령어를 입력한 유저는 아닐 경우
+        const session = voiceSessions.get(guildId);
+        if (session?.isAdmin && !isAdminUser) {
+            return interaction.reply({
+                content: '🔒 현재 관리자 권한으로 봇이 사용 중입니다. 관리자만 이동시킬 수 있습니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        // F. 봇이 다른 음성 채널에 이미 접속해 있는 경우
         const moveButton = new ButtonBuilder()
             .setCustomId('move_voice')
             .setLabel('이동하기')
@@ -89,6 +124,9 @@ export default {
                 content: `**${userChannel.name}** 채널로 이동했습니다.`,
                 components: []
             });
+
+            voiceSessions.set(guildId, { isAdmin: isAdminUser });
+
             collector.stop();
         });
 
