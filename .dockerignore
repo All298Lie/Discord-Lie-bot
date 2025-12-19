@@ -1,3 +1,11 @@
+db_data
+
 node_modules
-Dockerfile
+
+.env
+
 .git
+.gitignore
+
+docker-compose.yml
+Dockerfile

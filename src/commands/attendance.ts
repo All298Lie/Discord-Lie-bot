@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 export default {
     // 명령어 속성
@@ -12,18 +12,45 @@ export default {
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
 
+        const currentChannelId = interaction.channelId;
+        const dedicatedChannelId = await getDedicatedChannel(guildId);
+
+        // A. 전용 채널이 설정되지 않은 경우
+        if (!dedicatedChannelId) {
+             return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        // B. 전용 채널에 입력하지 않은 경우
+        if (dedicatedChannelId !== currentChannelId) {
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
         // 유저 정보를 DB에서 가져오기
         const user = await getUser(guildId, userId);
         
-        // 날짜 불러오기
-        const today = new Date();
-        const lastDate = user.last_attendance_date ? new Date(user.last_attendance_date) : null;
+        // KST 시간(+09:00) 계산 오프셋
+        const kstOffset = 9 * 60 * 60 * 1000;
 
-        // 날짜 비교
-        const todayStr = today.toISOString().split('T')[0];
-        const lastDateStr = lastDate ? lastDate.toISOString().split('T')[0] : '';
+        // 한국시간 기준 오늘 날짜 불러오기
+        const now = new Date(); // YYYY-MM-DDThh:mm:ss.msZ (밀리초 단위 3자리)
+        const kstNow = new Date(now.getTime() + kstOffset);
+        const todayStr = kstNow.toISOString().split('T')[0];
 
-        // A. 오늘 출석을 이미 한 경우
+        // 마지막 출석일 불러오기
+        let lastDateStr = '';
+        if (user.last_attendance_date) {
+            const lastDate = new Date(user.last_attendance_date);
+            const kstLastDate = new Date(lastDate.getTime() + kstOffset)
+            lastDateStr = kstLastDate.toISOString().split('T')[0]!;
+        }
+
+        // C. 오늘 출석을 이미 한 경우
         if (todayStr === lastDateStr) {
             return interaction.reply({
                 content: '이미 오늘은 출석하였습니다.',
@@ -32,12 +59,12 @@ export default {
         }
         
         // 보상 계산
-        const dayOfWeek = today.getDay();
+        const dayOfWeek = kstNow.getDay();
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         let reward = isWeekend ? 10000 : 5000;
 
         // 어제 날짜 계산하기
-        const yesterday = new Date(today);
+        const yesterday = new Date(kstNow);
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
 
@@ -62,16 +89,16 @@ export default {
             UPDATE users SET
                 point = point + ?,
                 consecutive_days = ?,
-                last_attenance_date = ?
+                last_attendance_date = ?
             WHERE guild_id = ? AND user_id =?
             `,
             [totalPoint, newStreak, todayStr, guildId, userId]
         );
 
-        // B. 출석을 한 경우
+        // D. 출석을 한 경우
         return interaction.reply(
             `📅**출석 체크 완료**\n` +
-            `- 출석 보상 : ${reward.toLocaleString()} P (${isWeekend} ? '주말' : '평일')\n` +
+            `- 출석 보상 : ${reward.toLocaleString()} P (${isWeekend ? '주말' : '평일'})\n` +
             (bonus > 0 ? `- 🔥 연속 ${newStreak}일 보너스 : +${bonus.toLocaleString()} P\n\n` : '\n') +
             `- 총 획득 : **${totalPoint.toLocaleString()} P**`
         );

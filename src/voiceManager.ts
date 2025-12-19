@@ -1,5 +1,6 @@
 import { VoiceState } from 'discord.js';
 import pool from './database.js';
+import { voiceSessions } from './botState.js';
 
 // 접속 중인 유저 관리 맵 (Key: 유저ID, Value: { 서버ID, 마지막보상받은시간 })
 const voiceUserMap = new Map<string, { guildId: string, lastRewardTime: number }>();
@@ -66,7 +67,11 @@ export function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceStat
             });
         }
         else if (oldState.channelId && !newState.channelId) { // B. 봇이 음성 채널에 퇴장한 경우 (/퇴장)
+            const guildId = oldState.guild.id;
+
             console.log(`[${newState.guild.name}(${newState.guild.id})] 봇이 음성채널에서 퇴장했습니다.`);
+            
+            voiceSessions.delete(guildId);
 
             // 해당 서버의 추적 중인 유저들 리스트에서 제거
             for (const [uid, data] of voiceUserMap.entries()) {
