@@ -54,15 +54,24 @@ export default {
         const tag = targetUser.discriminator === '0' ? '' : `#${targetUser.discriminator}`;
         const fullUsername = `${targetUser.username}${tag}`;
 
+        let joinDateStr = '알수없음';
+        if (member?.joinedTimestamp) {
+            const ts = Math.floor(member.joinedTimestamp / 1000); // 밀리초 -> 초 변환
+
+            joinDateStr = `<t:${ts}:D> (<t:${ts}:R>)`;
+        }
+
         // 임베드(Embed) 생성
         const embed = new EmbedBuilder()
             .setColor(0x00FF00) // 초록색 (원하는 색상 코드 사용 가능)
             .setTitle(`📋 ${targetUser.username}님의 정보`)
             .setThumbnail(targetUser.displayAvatarURL({ size: 256 })) // 프로필 사진 (우측 상단)
+            .setDescription(
+                `🏷️ **서버 닉네임** ${serverNick}\n` +
+                `👤 **닉네임** ${fullUsername}\n` +
+                `📅 **서버 가입일** ${joinDateStr}`
+            )
             .addFields(
-                // inline: true를 쓰면 가로로 나란히 정렬됩니다.
-                { name: '\u200B', value: `🏷️ **서버 닉네임** ${serverNick}` , inline: false }, // 한 줄 다 차지
-                { name: '\u200B', value: `👤 **닉네임** ${fullUsername}`, inline: false }, // 한 줄 다 차지
                 { name: '\u200B', value: '\u200B', inline: false }, // 빈 줄 추가 (간격 띄우기)
                 { name: '📊 레벨', value: `**${userData.level ?? 1} Lv**`, inline: true },
                 { name: '💰 포인트', value: `**${(userData.point ?? 0).toLocaleString()} P**`, inline: true }

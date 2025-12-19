@@ -5,24 +5,21 @@ export default {
     // 명령어 속성
     data: new SlashCommandBuilder()
         .setName('랜덤박스')
-        .setDescription('포인트를 사용하여 대박을 노려보세요!')
+        .setDescription('포인트를 사용하여 랜덤박스를 엽니다.')
         .addIntegerOption(option => 
-            option.setName('단계')
-                .setDescription('구매할 박스 단계 (1단계 [500P], 2단계 [5,000P], 3단계 [50,000P])')
+            option.setName('금액')
+                .setDescription('사용할 포인트를 선택하세요.')
                 .setRequired(true)
                 .addChoices(
-                    { name: '1', value: 1 },
-                    { name: '2', value: 2 },
-                    { name: '3', value: 3 },
+                    { name: '500 P', value: 500 },
+                    { name: '5,000 P', value: 5000 },
+                    { name: '50,000 P', value: 50000 },
                 )
         ),
 
     // 명령어 작동 함수
     async execute(interaction: ChatInputCommandInteraction) {
-        const tier = interaction.options.getInteger('단계', true);
-        const costs = { 1: 500, 2: 5000, 3: 50000 };
-        const cost = costs[tier as 1 | 2 | 3];
-
+        const cost = interaction.options.getInteger('금액', true);
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
         const user = await getUser(guildId, userId);
