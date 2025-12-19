@@ -123,7 +123,7 @@ export default {
             return interaction.reply(
                 `✨ **강화 성공!** ${isPity ? '(천장 발동🔥)' : ''}\n` +
                 `📊 확률: **${successChance}%**\n` +
-                `🔼 레벨: ${currentLevel} ➔ **${newLevel}** (+1)`
+                `🔼 레벨: ${currentLevel} ➔ **${newLevel}**`
             );
 
         } else {
