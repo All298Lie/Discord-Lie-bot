@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags, GuildMember } from 'discord.js';
 import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 export default {
@@ -58,10 +58,31 @@ export default {
             });
         }
         
-        // 보상 계산
+        // 평일/주간 보상 계산
         const dayOfWeek = kstNow.getDay();
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         let reward = isWeekend ? 10000 : 5000;
+
+        // 서버 부스트 여부 계산
+        const member = interaction.member as GuildMember;
+        let boost = 0;
+        let isBooster = false;
+        let boostMonths = 0;
+
+        if (member && member.premiumSince) {
+            isBooster = true;
+
+            const now = new Date();
+            const boostStart = member.premiumSince;
+            const diffTime = now.getTime() - boostStart.getTime();
+
+            const oneMonthInMs = 30 * 24 * 60 * 60 * 1000;
+
+            boostMonths = Math.floor(diffTime / oneMonthInMs);
+
+            // 기본 50 + (개월 수  * 50)
+            boost = 50 + (boostMonths * 50);
+        }
 
         // 어제 날짜 계산하기
         const yesterday = new Date(kstNow);
@@ -81,7 +102,7 @@ export default {
             bonus = newStreak * 500;
         }
 
-        const totalPoint = reward + bonus;
+        const totalPoint = reward + boost + bonus;
 
         // DB에 갱신
         await pool.execute(
@@ -99,6 +120,7 @@ export default {
         return interaction.reply(
             `📅**출석 체크 완료**\n` +
             `- 출석 보상 : ${reward.toLocaleString()} P (${isWeekend ? '주말' : '평일'})\n` +
+            (isBooster ? `💎 서버부스트 보너스 : +${boost} P (${boostMonths}개월째 유지중)\n` : '') +
             (bonus > 0 ? `- 🔥 연속 ${newStreak}일 보너스 : +${bonus.toLocaleString()} P\n\n` : '\n') +
             `- 총 획득 : **${totalPoint.toLocaleString()} P**`
         );
