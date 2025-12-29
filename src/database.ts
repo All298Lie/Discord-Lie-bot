@@ -98,4 +98,14 @@ export async function getDedicatedChannel(guildId: string) : Promise<string | nu
     return rows.length > 0 ? rows[0].dedicated_channel_id : null;
 }
 
+// 서버별 상위 5명 랭킹 정보를 가져오는 함수
+export async function getRanking(guildId: string) {
+    const [rows]: any = await pool.execute(
+        'SELECT user_id, level FROM users WHERE guild_id WHERE guild_id = ? ORDER BY level DESC LIMIT 5',
+        [guildId]
+    );
+
+    return rows;
+}
+
 export default pool;
