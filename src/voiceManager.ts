@@ -23,8 +23,10 @@ export function startVoiceRewardLoop() {
                 // DB 업데이트 준비
                 updates.push(
                     pool.execute(
-                        'UPDATE users SET point = point + ? WHERE guild_id = ? AND user_id = ?',
-                        [REWARD_POINT, data.guildId, userId]
+                        `INSERT INTO users (guild_id, user_id, point) 
+                         VALUES (?, ?, ?) 
+                         ON DUPLICATE KEY UPDATE point = point + ?`,
+                        [data.guildId, userId, REWARD_POINT, REWARD_POINT]
                     ).then(() => {
                         console.log(`[포인트 지급] ${userId}님에게 ${REWARD_POINT}P 지급 완료`);
                     }).catch(e => {
