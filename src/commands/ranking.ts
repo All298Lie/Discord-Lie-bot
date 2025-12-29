@@ -30,7 +30,15 @@ export default {
                     if (rank === 2) rankIcon = '🥈';
                     if (rank === 3) rankIcon = '🥉';
 
-                    rankingDescription += `${rankIcon} : <@${userData.id}> (Lv. ${userData.level})\n`;
+                    let info = `${rankIcon} : <@${userData.id}> (Lv. ${userData.level})`;
+
+                    if (userData.max_level_reached_at) {
+                        const date = new Date(userData.max_level_reached_at);
+                        const dateString = date.toLocaleDateString('ko-KR');
+                        info += `- ${dateString} 달성! 👑`;
+                    }
+
+                    rankingDescription += `${info}\n`;
                 } else {
                     rankingDescription += `${rank}등 : -\n`;
                 }
