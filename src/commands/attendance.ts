@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags, GuildMember, EmbedBuilder } from 'discord.js';
 import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 export default {
@@ -9,13 +9,21 @@ export default {
 
     // 명령어 작동 함수
     async execute(interaction: ChatInputCommandInteraction) {
-        const guildId = interaction.guildId!;
+        await interaction.deferReply();
+
+        const guildId = interaction.guildId;
         const userId = interaction.user.id;
+
+        // A. 서버에서 명령어를 입력하지 않은 경우
+        if (!guildId) {
+            await interaction.reply('이 명령어는 서버에서만 사용할 수 있습니다.');
+            return;
+        }
 
         const currentChannelId = interaction.channelId;
         const dedicatedChannelId = await getDedicatedChannel(guildId);
 
-        // A. 전용 채널이 설정되지 않은 경우
+        // B. 전용 채널이 설정되지 않은 경우
         if (!dedicatedChannelId) {
              return interaction.reply({
                 content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
@@ -23,7 +31,7 @@ export default {
             });
         }
 
-        // B. 전용 채널에 입력하지 않은 경우
+        // C. 전용 채널에 입력하지 않은 경우
         if (dedicatedChannelId !== currentChannelId) {
             return interaction.reply({
                 content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
@@ -33,24 +41,29 @@ export default {
 
         // 유저 정보를 DB에서 가져오기
         const user = await getUser(guildId, userId);
-        
-        // KST 시간(+09:00) 계산 오프셋
-        const kstOffset = 9 * 60 * 60 * 1000;
 
-        // 한국시간 기준 오늘 날짜 불러오기
-        const now = new Date(); // YYYY-MM-DDThh:mm:ss.msZ (밀리초 단위 3자리)
-        const kstNow = new Date(now.getTime() + kstOffset);
-        const todayStr = kstNow.toISOString().split('T')[0];
+        const now = new Date();
+
+        // 한국시간 기준 오늘 날짜 문자열
+        const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+
+        // 한국시간 기준 요일 계산을 위해 사용할 Date 불러오기
+        const kstDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        const dayOfWeek = kstDate.getDay();
+
+        // 한국시간 기준 어제 날짜 계산
+        const yesterdayDate = new Date(kstDate);
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
         // 마지막 출석일 불러오기
         let lastDateStr = '';
         if (user.last_attendance_date) {
-            const lastDate = new Date(user.last_attendance_date);
-            const kstLastDate = new Date(lastDate.getTime() + kstOffset)
-            lastDateStr = kstLastDate.toISOString().split('T')[0]!;
+            const dbDate = new Date(user.last_attendance_date);
+            lastDateStr = dbDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
         }
 
-        // C. 오늘 출석을 이미 한 경우
+        // D. 오늘 출석을 이미 한 경우
         if (todayStr === lastDateStr) {
             return interaction.reply({
                 content: '이미 오늘은 출석하였습니다.',
@@ -59,7 +72,6 @@ export default {
         }
         
         // 평일/주간 보상 계산
-        const dayOfWeek = kstNow.getDay();
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         let reward = isWeekend ? 10000 : 5000;
 
@@ -83,12 +95,7 @@ export default {
             // 기본 50 + (개월 수  * 50)
             boost = 50 + (boostMonths * 50);
         }
-
-        // 어제 날짜 계산하기
-        const yesterday = new Date(kstNow);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-
+        
         let newStreak = 1;
 
         // 연속 출석 계산을 위해 전날과 DB에 저장된 마지막 출석일 비교
@@ -116,13 +123,43 @@ export default {
             [totalPoint, newStreak, todayStr, guildId, userId]
         );
 
-        // D. 출석을 한 경우
-        return interaction.reply(
-            `📅**출석 체크 완료**\n` +
-            `- 출석 보상 : ${reward.toLocaleString()} P (${isWeekend ? '주말' : '평일'})\n` +
-            (isBooster ? `💎 서버부스트 보너스 : +${boost} P (${boostMonths}개월째 유지중)\n` : '') +
-            (bonus > 0 ? `- 🔥 연속 ${newStreak}일 보너스 : +${bonus.toLocaleString()} P\n\n` : '\n') +
-            `- 총 획득 : **${totalPoint.toLocaleString()} P**`
-        );
+        const embed = new EmbedBuilder()
+            .setTitle('📅 출석 체크 완료!')
+            .setColor(isWeekend ? 0xFF69B4 : 0x00FF00) // 주말이면 핫핑크, 평일이면 초록
+            .setThumbnail(interaction.user.displayAvatarURL()) // 유저 프사 표시
+            .addFields(
+                { 
+                    name: '기본 보상', 
+                    value: `${reward.toLocaleString()} P (${isWeekend ? '주말 🏖️' : '평일 🏢'})`, 
+                    inline: true 
+                },
+                { 
+                    name: '연속 출석', 
+                    value: `${newStreak}일차 🔥 ${bonus > 0 ? `(+${bonus.toLocaleString()} P)` : ''}`, 
+                    inline: true 
+                }
+            );
+
+        // 부스트 보너스가 있을 때만 필드 추가
+        if (isBooster) {
+            embed.addFields({
+                name: '🚀 서버 부스트 보너스',
+                value: `+${boost.toLocaleString()} P (${boostMonths}개월 차)`,
+                inline: false
+            });
+        }
+
+        // 총 획득 포인트 강조
+        embed.addFields({
+            name: '💰 총 획득 포인트',
+            value: `**+${totalPoint.toLocaleString()} P**`,
+            inline: false
+        });
+
+        embed.setFooter({ text: `${interaction.user.username}님의 현재 포인트가 갱신되었습니다.` });
+        embed.setTimestamp();
+
+        // E. 출석을 한 경우
+        return interaction.editReply({ embeds: [embed] });
     }
 };
