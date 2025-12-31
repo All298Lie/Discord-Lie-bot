@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
-import { getRanking } from '../database.js'; // ⚠️ 사용하시는 DB 연결 객체 경로로 수정하세요!
+import { getRanking } from '../database.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -30,7 +30,7 @@ export default {
                     if (rank === 2) rankIcon = '🥈';
                     if (rank === 3) rankIcon = '🥉';
 
-                    let info = `${rankIcon} : <@${userData.id}> (Lv. ${userData.level})`;
+                    let info = `${rankIcon} : <@${userData.user_id}> (Lv. ${userData.level})`;
 
                     if (userData.max_level_reached_at) {
                         const date = new Date(userData.max_level_reached_at);
