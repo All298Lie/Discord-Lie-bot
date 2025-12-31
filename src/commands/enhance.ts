@@ -31,8 +31,10 @@ export default {
 
         // A. 서버에서 명령어를 입력한 경우가 아닐 경우
         if (!guildId) {
-            await interaction.reply('이 명령어는 서버에서만 사용할 수 있습니다.');
-            return;
+            return interaction.reply({
+                content: '이 명령어는 서버에서만 사용할 수 있습니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
         }
 
         const currentChannelId = interaction.channelId;

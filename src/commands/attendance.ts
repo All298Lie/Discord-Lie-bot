@@ -9,15 +9,16 @@ export default {
 
     // 명령어 작동 함수
     async execute(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply();
 
         const guildId = interaction.guildId;
         const userId = interaction.user.id;
 
         // A. 서버에서 명령어를 입력하지 않은 경우
         if (!guildId) {
-            await interaction.editReply('이 명령어는 서버에서만 사용할 수 있습니다.');
-            return;
+            return await interaction.reply({
+                content: '이 명령어는 서버에서만 사용할 수 있습니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
         }
 
         const currentChannelId = interaction.channelId;
@@ -25,15 +26,17 @@ export default {
 
         // B. 전용 채널이 설정되지 않은 경우
         if (!dedicatedChannelId) {
-             return interaction.editReply({
-                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.'
+             return interaction.reply({
+                content: '🚫 아직 봇 사용 전용 채널이 설정되지 않았습니다. 관리자가 먼저 설정해야 합니다.',
+                flags: [MessageFlags.Ephemeral]
             });
         }
 
         // C. 전용 채널에 입력하지 않은 경우
         if (dedicatedChannelId !== currentChannelId) {
-            return interaction.editReply({
-                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`
+            return interaction.reply({
+                content: `🚫 이 명령어는 <#${dedicatedChannelId}> 채널에서만 사용할 수 있습니다.`,
+                flags: [MessageFlags.Ephemeral]
             });
         }
 
@@ -68,6 +71,8 @@ export default {
                 flags: [MessageFlags.Ephemeral]
             });
         }
+        
+        await interaction.deferReply();
         
         // 평일/주간 보상 계산
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
