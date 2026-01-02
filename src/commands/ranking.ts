@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, MessageFlags } from 'discord.js';
 import { getRanking } from '../database.js';
 
 export default {
@@ -9,8 +9,10 @@ export default {
     async execute(interaction: ChatInputCommandInteraction) {
         // A. 서버에서 명령어를 입력하지 않은 경우
         if (!interaction.guildId) {
-            await interaction.reply('이 명령어는 서버에서만 사용할 수 있습니다.');
-            return;
+            return interaction.reply({
+                content:'이 명령어는 서버에서만 사용할 수 있습니다.',
+                flags: [MessageFlags.Ephemeral]
+            });
         }
 
         await interaction.deferReply();
