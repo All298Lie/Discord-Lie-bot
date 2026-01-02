@@ -55,7 +55,7 @@ export default {
         // 한국시간 기준 어제 날짜 계산
         const yesterdayDate = new Date(kstDate);
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+        const yesterdayStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 
         // 마지막 출석일 불러오기
         let lastDateStr = '';
