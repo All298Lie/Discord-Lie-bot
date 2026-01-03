@@ -42,6 +42,12 @@ export async function initDatabase() {
             dedicated_channel_id VARCHAR(20)
         );
     `;
+    const systemSettings = `
+        CREATE TABLE IF NOT EXISTS system_settings (
+            setting_key VARCHAR(50) PRIMARY KEY,
+            setting_value TEXT
+        );
+    `;
 
     // 데이터베이스 접속 시도
     let connected = false;
@@ -51,6 +57,7 @@ export async function initDatabase() {
             await pool.execute('SELECT 1'); // 테스트 쿼리
             await pool.execute(users); // users 테이블 생성 쿼리
             await pool.execute(guildSettings); // guild_settings 테이블 생성 쿼리
+            await pool.execute(systemSettings); // system_settings 테이블 생성 쿼리
 
             console.log("✅ 데이터베이스 연결 및 초기화 성공!");
             connected = true
