@@ -32,7 +32,7 @@ export async function initDatabase() {
             point BIGINT UNSIGNED DEFAULT 0,
             consecutive_days INT UNSIGNED DEFAULT 0,
             last_attendance_date DATE DEFAULT NULL,
-            max_level_reached_at DATETIME DEFAULT NULL,
+            last_level_up_at DATETIME DEFAULT NULL,
             PRIMARY KEY (guild_id, user_id)
         );
     `;
@@ -102,25 +102,15 @@ export async function getDedicatedChannel(guildId: string) : Promise<string | nu
 // 서버별 상위 5명 랭킹 정보를 가져오는 함수
 export async function getRanking(guildId: string) {
     const [rows]: any = await pool.execute(
-        `SELECT user_id, level, max_level_reached_at
+        `SELECT user_id, level, last_level_up_at
         FROM users
         WHERE guild_id = ?
-        ORDER BY level DESC, max_level_reached_at ASC
+        ORDER BY level DESC, last_level_up_at ASC
         LIMIT 5`,
         [guildId]
     );
 
     return rows;
-}
-
-// 만렙 달성 시 날짜 기록하는 함수 
-export async function updateMaxLevelDate(guildId: string, userId: string) {
-    await pool.execute(
-        `UPDATE users
-        SET max_level_reached_at = NOW()
-        WHERE guild_id = ? AND user_id = ? AND max_level_reached_at IS NULL`,
-        [guildId, userId]
-    );
 }
 
 export default pool;

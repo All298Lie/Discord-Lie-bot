@@ -34,10 +34,18 @@ export default {
 
                     let info = `${rankIcon} : <@${userData.user_id}> (Lv. ${userData.level})`;
 
-                    if (userData.max_level_reached_at) {
-                        const date = new Date(userData.max_level_reached_at);
-                        const dateString = date.toLocaleDateString('ko-KR');
-                        info += `- ${dateString} 달성! 👑`;
+                    if (userData.last_level_up_at) {
+                        const date = new Date(userData.last_level_up_at);
+
+                        const year = date.getFullYear().toString().slice(-2);
+                        const month = date.getMonth() + 1;
+                        const day = date.getDate();
+
+                        info += ` (${year}.${month}.${day})`;
+
+                        if (userData.level >= 500) {
+                            info += ' 👑';
+                        }
                     }
 
                     rankingDescription += `${info}\n`;

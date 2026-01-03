@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser, getDedicatedChannel, updateMaxLevelDate } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 // 로그 함수 기반 강화 확률 계산 함수
 function calculateChance(level: number): number {
@@ -116,17 +116,23 @@ export default {
             UPDATE users SET
             point = point - ?,
             level = ?,
-            failure_count = ?
+            failure_count = ?,
+            last_level_up_at = CASE WHEN ? = 1 THEN NOW() ELSE last_level_up_at END
             WHERE guild_id = ? AND user_id = ?
             `,
-            [cost, newLevel, newFailCount, guildId, userId]
+            [
+                cost,
+                newLevel,
+                newFailCount,
+                isSuccess ? 1 : 0,
+                guildId,
+                userId
+            ]
         );
 
         if (isSuccess) {
             if (newLevel >= MAX_LEVEL) { // E. 최대 레벨에 달성한 경우
-                await updateMaxLevelDate(guildId, interaction.user.id);
-
-                 return interaction.reply(
+                return interaction.reply(
                     `🎆 **전설의 탄생!** 강화 대성공!\n` +
                     `최고 레벨 **Lv.${MAX_LEVEL}**을 달성하셨습니다! 🏆`
                 );
