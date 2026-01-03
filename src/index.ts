@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection, Events, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, Events, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
 import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,11 +22,6 @@ const client = new Client({
     ]
 });
 
-// DB 테이블 생성
-(async () => {
-    await initDatabase();
-})();
-
 // command 목록 가져오기
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,9 +43,54 @@ for (const file of commandFiles) {
 }
 
 // A. 봇 로그인 감지 이벤트
-client.once(Events.ClientReady, () => {
-    console.log(`로그인 성공! ${client.user?.tag}`);
+client.once(Events.ClientReady, async c => {
+    console.log(`🤖 봇이 준비되었습니다! 로그인: ${c.user.tag}`);
 
+    // DB 초기화
+    await initDatabase();
+
+    // 패치 노트 예약 확인
+    try {
+        const [rows]: any = await pool.execute(
+            "SELECT setting_value FROM system_settings WHERE setting_key = 'patch_note'"
+        );
+
+        if (rows.length > 0 && rows[0].setting_value) {
+            const patchNote = rows[0].setting_value;
+
+            // guild_settings 테이블에서 채널 ID들 가져오기
+            const [channels]: any = await pool.execute("SELECT dedicated_channel_id FROM guild_settings");
+
+            const embed = new EmbedBuilder()
+                .setTitle('🛠️ 봇 업데이트 알림')
+                .setDescription(patchNote)
+                .setColor(0x00FF00)
+                .setTimestamp();
+
+            let sendCount = 0;
+            for (const row of channels) {
+                const channelId = row.dedicated_channel_id;
+                try {
+                    const channel = await client.channels.fetch(channelId) as TextChannel;
+                    if (channel) {
+                        await channel.send({ embeds: [embed] });
+                        sendCount++;
+                    }
+                } catch (e) {
+                    // 채널이 삭제되었거나 권한이 없는 경우 무시
+                    console.error(`채널(${channelId}) 전송 실패`);
+                }
+            }
+            console.log(`📢 총 ${sendCount}개 채널에 패치 노트 전송 완료.`);
+
+            // 전송 후 DB에서 내용 삭제
+            await pool.execute("UPDATE system_settings SET setting_value = NULL WHERE setting_key = 'patch_note'");
+        }
+    } catch (error) {
+        console.error("패치 노트 확인 중 오류 발생:", error);
+    }
+
+    // 음성 채널 접속 보상 지급 함수 실행
     startVoiceRewardLoop();
 });
 
