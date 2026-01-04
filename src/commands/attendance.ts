@@ -89,11 +89,18 @@ export default {
 
             const now = new Date();
             const boostStart = member.premiumSince;
-            const diffTime = now.getTime() - boostStart.getTime();
 
-            const oneMonthInMs = 30 * 24 * 60 * 60 * 1000;
+            // 서버 부스트 몇개월 유지 중인지 계산
+            let months = (now.getFullYear() - boostStart.getFullYear()) * 12;
+            months -= boostStart.getMonth();
+            months += now.getMonth();
 
-            boostMonths = Math.floor(diffTime / oneMonthInMs);
+            // 날짜 비교 후 오차 계산
+            if (now.getDate() < boostStart.getDate()) {
+                months--;
+            }
+
+            boostMonths = Math.max(0, months);
 
             // 기본 50 + (개월 수  * 50)
             boost = 50 + (boostMonths * 50);
