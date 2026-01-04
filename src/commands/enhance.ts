@@ -1,12 +1,15 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, MessageFlags } from 'discord.js';
-import pool, { getUser, getDedicatedChannel, updateMaxLevelDate } from '../database.js';
+import pool, { getUser, getDedicatedChannel } from '../database.js';
 
 // 로그 함수 기반 강화 확률 계산 함수
 function calculateChance(level: number): number {
+    if (level <= 1) return 100;
+
     const calculatedChance = 100 - (15.3 * Math.log(level));
 
-    // 최소치 5%
-    return Math.max(5, Math.floor(calculatedChance));
+    // 최소치 5%, 소수 첫째자리까지만 남기고 내림처리 
+    const chance = Math.max(5, calculatedChance);
+    return Math.floor(chance * 10) / 10;
 }
 
 // 레벨별 천장 횟수 계산 함수
@@ -113,17 +116,23 @@ export default {
             UPDATE users SET
             point = point - ?,
             level = ?,
-            failure_count = ?
+            failure_count = ?,
+            last_level_up_at = CASE WHEN ? = 1 THEN NOW() ELSE last_level_up_at END
             WHERE guild_id = ? AND user_id = ?
             `,
-            [cost, newLevel, newFailCount, guildId, userId]
+            [
+                cost,
+                newLevel,
+                newFailCount,
+                isSuccess ? 1 : 0,
+                guildId,
+                userId
+            ]
         );
 
         if (isSuccess) {
             if (newLevel >= MAX_LEVEL) { // E. 최대 레벨에 달성한 경우
-                await updateMaxLevelDate(guildId, interaction.user.id);
-
-                 return interaction.reply(
+                return interaction.reply(
                     `🎆 **전설의 탄생!** 강화 대성공!\n` +
                     `최고 레벨 **Lv.${MAX_LEVEL}**을 달성하셨습니다! 🏆`
                 );
@@ -132,7 +141,7 @@ export default {
             // F. 강화에 성공한 경우
             return interaction.reply(
                 `✨ **강화 성공!** ${isPity ? '(천장 발동🔥)' : ''}\n` +
-                `📊 확률: **${successChance}%**\n` +
+                `📊 확률: **${successChance.toFixed(1)}%**\n` +
                 `🔼 레벨: ${currentLevel} ➔ **${newLevel}**`
             );
 
@@ -140,7 +149,7 @@ export default {
             // G. 강화에 실패한 경우
             return interaction.reply(
                 `💥 **강화 실패...**\n` +
-                `📊 확률: **${successChance}%**\n` +
+                `📊 확률: **${successChance.toFixed(1)}%**\n` +
                 `🔨 누적 실패: ${newFailCount} / ${maxFailures}회 (확정까지 ${maxFailures - newFailCount}회)`
             );
         }
