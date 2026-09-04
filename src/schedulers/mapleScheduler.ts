@@ -8,25 +8,23 @@ let retryTimeout: NodeJS.Timeout | null = null;
 // 봇이 켜질 때 즉시 실행할 상태 검증 함수
 async function checkBootTimeState(client: Client) {
     const now = new Date();
-    // 안전하게 한국 시간(KST) 객체로 변환
     const kstTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-    const day = kstTime.getDay(); // 0(일) ~ 6(토)
+    const day = kstTime.getDay();
     const hour = kstTime.getHours();
 
-    // 금요일(5) 10시 이후, 토요일(6), 일요일(0)인지 확인
     const isFetchPeriod = (day === 5 && hour >= 10) || day === 6 || day === 0;
 
     try {
         if (isFetchPeriod) {
             const [rows]: any = await pool.execute('SELECT COUNT(*) as cnt FROM sunday_maple');
             if (rows[0].cnt === 0) {
-                console.log("🔍 [부팅 검사] 기간 내이나 데이터가 비어있습니다. 즉시 탐색을 시작합니다.");
-                await attemptFetchSundayMaple(client);
+                console.log("🔍 [부팅 검사] 기간 내이나 데이터가 비어있습니다. 조용히 데이터를 가져옵니다.");
+                // 두 번째 인자로 false를 전달하여 알림을 생략합니다.
+                await attemptFetchSundayMaple(client, false); 
             } else {
                 console.log("✅ [부팅 검사] 썬데이 메이플 데이터가 정상적으로 존재합니다.");
             }
         } else {
-            // 그 외의 시간 (월~목, 금 오전 10시 이전)
             await pool.execute('TRUNCATE TABLE sunday_maple');
             console.log("🧹 [부팅 검사] 탐색 기간이 아니므로 썬데이 메이플 데이터를 비웁니다.");
         }
@@ -37,16 +35,16 @@ async function checkBootTimeState(client: Client) {
 
 // 봇 로그인 직후 index.ts에서 호출되는 함수
 export async function initMapleScheduler(client: Client) {
-    // 1. 부팅 시점에 누락된 데이터가 있는지 먼저 검사
     await checkBootTimeState(client);
 
-    // 2. 매주 금요일 오전 10시 정기 실행 (한국 시간 기준)
+    // 매주 금요일 오전 10시 정기 실행
     cron.schedule('0 10 * * 5', () => {
         console.log("🔍 금요일 10시: 썬데이 메이플 탐색을 시작합니다.");
-        attemptFetchSundayMaple(client);
+        // 정기 실행 시에는 알림을 보냅니다 (기본값 true).
+        attemptFetchSundayMaple(client, true);
     }, { timezone: 'Asia/Seoul' });
 
-    // 3. 매주 일요일 오후 11시 59분 삭제 (한국 시간 기준)
+    // 매주 일요일 오후 11시 59분 삭제
     cron.schedule('59 23 * * 0', async () => {
         try {
             await pool.execute('TRUNCATE TABLE sunday_maple');
@@ -57,7 +55,8 @@ export async function initMapleScheduler(client: Client) {
     }, { timezone: 'Asia/Seoul' });
 }
 
-async function attemptFetchSundayMaple(client: Client) {
+// shouldBroadcast 매개변수 추가 (기본값 true)
+async function attemptFetchSundayMaple(client: Client, shouldBroadcast: boolean = true) {
     try {
         const listData = await getEventNoticeList();
         const sundayEvent = listData.event_notice.find((n: any) => n.title.includes('썬데이 메이플'));
@@ -79,11 +78,17 @@ async function attemptFetchSundayMaple(client: Client) {
 
         console.log("✅ 썬데이 메이플 데이터를 성공적으로 저장했습니다.");
 
-        await broadcastSundayMaple(client, sundayEvent.title, sundayEvent.url, imageUrl);
+        // shouldBroadcast가 true일 때만 알림 전송 로직 실행
+        if (shouldBroadcast) {
+            await broadcastSundayMaple(client, sundayEvent.title, sundayEvent.url, imageUrl);
+        } else {
+            console.log("🔇 부팅 복구로 인한 실행이므로 채팅 알림은 생략합니다.");
+        }
 
     } catch (error) {
         console.error(`⚠️ 탐색 실패 (${(error as Error).message}). 1분 후 재시도합니다...`);
-        retryTimeout = setTimeout(() => attemptFetchSundayMaple(client), 60 * 1000);
+        // 재시도 시에도 알림 여부(shouldBroadcast)를 그대로 전달하여 일관성 유지
+        retryTimeout = setTimeout(() => attemptFetchSundayMaple(client, shouldBroadcast), 60 * 1000);
     }
 }
 
@@ -110,7 +115,7 @@ async function broadcastSundayMaple(client: Client, title: string, url: string, 
                     sendCount++;
                 }
             } catch (e) {
-                // 채널을 찾을 수 없거나 권한 부족
+                // 무시
             }
         }
         console.log(`📢 총 ${sendCount}개 채널에 썬데이 메이플 알림 전송 완료.`);
