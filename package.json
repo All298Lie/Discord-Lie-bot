@@ -17,11 +17,13 @@
     "dotenv": "^17.2.3",
     "libsodium-wrappers": "^0.7.15",
     "mysql2": "^3.15.3",
+    "node-cron": "^4.6.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/node": "^25.0.2"
+    "@types/node": "^25.0.2",
+    "@types/node-cron": "^3.0.11"
   }
 }
