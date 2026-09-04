@@ -49,6 +49,24 @@ export async function initDatabase() {
         );
     `;
 
+    const guildMaple = `
+        CREATE TABLE IF NOT EXISTS guild_maple (
+            guild_id VARCHAR(20) PRIMARY KEY,
+            maple_channel_id VARCHAR(20) DEFAULT NULL,
+            maple_noti_enabled BOOLEAN DEFAULT FALSE
+        );
+    `;
+
+    const sundayMaple = `
+        CREATE TABLE IF NOT EXISTS sunday_maple (
+            notice_id INT PRIMARY KEY,
+            title VARCHAR(100),
+            url VARCHAR(255),
+            image_url TEXT,
+            saved_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
     // 데이터베이스 접속 시도
     let connected = false;
     while (!connected) {
@@ -58,6 +76,8 @@ export async function initDatabase() {
             await pool.execute(users); // users 테이블 생성 쿼리
             await pool.execute(guildSettings); // guild_settings 테이블 생성 쿼리
             await pool.execute(systemSettings); // system_settings 테이블 생성 쿼리
+            await pool.execute(guildMaple); // guild_maple 테이블 생성 쿼리
+            await pool.execute(sundayMaple); // sunday_maple 테이블 생성 쿼리
 
             console.log("✅ 데이터베이스 연결 및 초기화 성공!");
             connected = true
@@ -118,6 +138,34 @@ export async function getRanking(guildId: string) {
     );
 
     return rows;
+}
+
+// 메이플 알림 전용 채널을 지정하는 함수
+export async function setMapleChannel(guildId: string, channelId: string) {
+    await pool.execute(`
+        INSERT INTO guild_maple (guild_id, maple_channel_id)
+        VALUES(?, ?)
+        ON DUPLICATE KEY UPDATE maple_channel_id = ?
+    `, [guildId, channelId, channelId]);
+}
+
+// 메이플 썬데이 알림 허용/거부 상태를 변경하는 함수
+export async function setMapleNoti(guildId: string, isEnabled: boolean) {
+    await pool.execute(`
+        INSERT INTO guild_maple (guild_id, maple_noti_enabled)
+        VALUES(?, ?)
+        ON DUPLICATE KEY UPDATE maple_noti_enabled = ?
+    `, [guildId, isEnabled, isEnabled]);
+}
+
+// 메이플 전용 채널 ID 가져오는 함수 (채널 설정 여부 확인용)
+export async function getMapleChannel(guildId: string): Promise<string | null> {
+    const [rows]: any = await pool.execute(
+        'SELECT maple_channel_id FROM guild_maple WHERE guild_id = ?',
+        [guildId]
+    );
+
+    return rows.length > 0 ? rows[0].maple_channel_id : null;
 }
 
 export default pool;
