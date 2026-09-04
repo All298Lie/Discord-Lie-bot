@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import pool, { initDatabase } from './database.js';
 import { startVoiceRewardLoop, handleVoiceStateUpdate } from './voiceManager.js';
+import { initMapleScheduler } from './schedulers/mapleScheduler.js';
 
 // 환경 변수 로드
 dotenv.config();
@@ -48,6 +49,8 @@ client.once(Events.ClientReady, async c => {
 
     // DB 초기화
     await initDatabase();
+
+    initMapleScheduler(client);
 
     // 패치 노트 예약 확인
     try {
